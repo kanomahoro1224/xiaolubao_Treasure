@@ -384,24 +384,28 @@ class _LinkChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(17),
           border: Border.all(color: palette.hairline, width: 1),
         ),
-        alignment: Alignment.center,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            KanoBrandMark(kind: brand, size: hasLabel ? 13 : 17, color: palette.textPrimary),
-            if (hasLabel) ...[
-              const SizedBox(width: 6),
-              Text(
-                label!,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  color: palette.textPrimary,
+        // Container(alignment: Alignment.center) 在不设 width 时会撑满 Wrap 一整行，
+        // 导致每个 X 账号胶囊独占一行；改用 Center(widthFactor: 1) 按内容收紧宽度并垂直居中。
+        child: Center(
+          widthFactor: 1,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              KanoBrandMark(kind: brand, size: hasLabel ? 13 : 17, color: palette.textPrimary),
+              if (hasLabel) ...[
+                const SizedBox(width: 6),
+                Text(
+                  label!,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
+                    color: palette.textPrimary,
+                  ),
+                  maxLines: 1,
                 ),
-                maxLines: 1,
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

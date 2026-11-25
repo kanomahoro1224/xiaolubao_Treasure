@@ -25,7 +25,8 @@ const _rows = <String, List<String>>{
   'server': ['服务器', '伺服器', 'サーバー', 'Server'],
   'server_auto': ['自动', '自動', '自動', 'Auto'],
   'server_primary': ['主站', '主站', 'メイン', 'Primary'],
-  'server_fallback': ['备用站', '備用站', '予備', 'Fallback'],
+  'server_fallback': ['备用站 1', '備用站 1', '予備 1', 'Fallback 1'],
+  'server_fallback_2': ['备用站 2', '備用站 2', '予備 2', 'Fallback 2'],
   'server_custom': ['自定义', '自訂', 'カスタム', 'Custom'],
   'server_desc': [
     '主站连不上时自动切备用站；填了自定义地址就只用它',

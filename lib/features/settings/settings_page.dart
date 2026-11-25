@@ -81,7 +81,8 @@ class _SettingsPageState extends State<SettingsPage>
             children: [
               _Option(
                 title: SettingsStrings.t('server_auto'),
-                subtitle: '${KanoServer.defaultBase} → ${KanoServer.fallbackBase}',
+                subtitle:
+                    '${KanoServer.defaultBase} → ${KanoServer.fallbackBase} → ${KanoServer.thirdFallbackBase}',
                 selected: current.isEmpty,
                 palette: palette,
                 onTap: () => Navigator.of(sheetContext).pop(const _ServerChoice.auto()),
@@ -97,10 +98,18 @@ class _SettingsPageState extends State<SettingsPage>
               _Option(
                 title: SettingsStrings.t('server_fallback'),
                 subtitle: KanoServer.fallbackBase,
-                selected: false,
+                selected: current == KanoServer.fallbackBase,
                 palette: palette,
                 onTap: () => Navigator.of(sheetContext)
                     .pop(const _ServerChoice.fixed(KanoServer.fallbackBase)),
+              ),
+              _Option(
+                title: SettingsStrings.t('server_fallback_2'),
+                subtitle: KanoServer.thirdFallbackBase,
+                selected: current == KanoServer.thirdFallbackBase,
+                palette: palette,
+                onTap: () => Navigator.of(sheetContext)
+                    .pop(const _ServerChoice.fixed(KanoServer.thirdFallbackBase)),
               ),
               _Option(
                 title: SettingsStrings.t('server_custom'),

@@ -13,16 +13,17 @@ class AppInfo {
     'APP_PACKAGE_ID',
     defaultValue: 'kano.xiaolubao.com',
   );
-  static const version = '1.0.3';
+  static const version = '1.0.4';
 
   /// Android versionCode。跟鸿蒙 `AppScope/app.json5` 的 `versionCode` 同值
-  /// （鸿蒙用 `主*1000000 + 次*1000 + 修订` 的 7 位编法，1.0.3 → 1000003），
+  /// （鸿蒙用 `主*1000000 + 次*1000 + 修订` 的 7 位编法，1.0.4 → 1000004），
   /// 两端发版时一起改，更新检查才比得出先后。
-  static const build = 1000003;
+  static const build = 1000004;
 
   /// 主页 / 数据来源
   static const homeUrl = 'https://xiaolubao.com';
-  static const fallbackUrl = 'https://kano.yexca.net';
+  static const fallbackUrl = 'https://kano.kafuno.cn';
+  static const thirdFallbackUrl = 'https://kano.fans';
 
   /// 开源许可页读取的包名（只用于 `showLicensePage` 的标题）
   static const licenseLabel = '小鹿包们的宝物 · 开源许可';

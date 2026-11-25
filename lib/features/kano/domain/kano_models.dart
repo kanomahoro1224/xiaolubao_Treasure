@@ -19,6 +19,20 @@ Map<String, dynamic> _obj(Object? v) =>
 List<Map<String, dynamic>> _list(Object? v) =>
     v is List ? v.whereType<Map>().map((e) => _obj(e)).toList(growable: false) : const [];
 
+/// 解析服务端下发的账号头像表（`<source>:<lowercase handle>` -> 绝对地址）。
+Map<String, String> _parseAccountAvatars(Object? v) {
+  final raw = _obj(v);
+  if (raw.isEmpty) return const <String, String>{};
+  final out = <String, String>{};
+  raw.forEach((key, value) {
+    final val = value is String ? value.trim() : '';
+    if (val.isEmpty) return;
+    final url = KanoServer.absolute(val);
+    if (url.isNotEmpty) out[key.trim().toLowerCase()] = url;
+  });
+  return Map.unmodifiable(out);
+}
+
 /// 日历摘要的类型。存的是语言无关的 key，显示文本与配色都按 key 查 ——
 /// 一旦把中文当 key，切到日语界面配色就会全部失配。
 class KanoKind {
@@ -513,6 +527,7 @@ class KanoProfile {
     required this.youtubeUrl,
     required this.mainHandle,
     required this.ownerHandles,
+    this.accountAvatars = const <String, String>{},
   });
 
   factory KanoProfile.fromJson(Map<String, dynamic> json) {
@@ -527,6 +542,7 @@ class KanoProfile {
       youtubeUrl: _str(json['youtubeUrl']),
       mainHandle: KanoServer.accountOf(xUrl),
       ownerHandles: const [],
+      accountAvatars: const <String, String>{},
     );
   }
 
@@ -544,7 +560,14 @@ class KanoProfile {
   /// 同一个人的 X 账号（主号 + 小号，均小写），这些账号的帖子共用同一张头像。
   final List<String> ownerHandles;
 
-  KanoProfile withOwnerHandles(List<String> handles) => KanoProfile(
+  /// 各账号独立头像映射：`<source>:<lowercase handle>` -> 绝对地址。
+  final Map<String, String> accountAvatars;
+
+  KanoProfile withOwnerHandles(
+    List<String> handles, {
+    Map<String, String>? accountAvatars,
+  }) =>
+      KanoProfile(
         displayName: displayName,
         romanizedName: romanizedName,
         bio: bio,
@@ -554,6 +577,7 @@ class KanoProfile {
         youtubeUrl: youtubeUrl,
         mainHandle: mainHandle,
         ownerHandles: handles.map((e) => e.toLowerCase()).toList(growable: false),
+        accountAvatars: accountAvatars ?? this.accountAvatars,
       );
 
   /// 某条帖子是否属于这个人名下的账号。
@@ -616,6 +640,7 @@ class KanoDashboard {
     required this.postWindowDays,
     required this.xAccounts,
     required this.profile,
+    this.accountAvatars = const <String, String>{},
     required this.counts,
     required this.latestPost,
     required this.latestVideo,
@@ -639,9 +664,10 @@ class KanoDashboard {
       }
     }
     final summary = _obj(json['summary']);
+    final avatars = _parseAccountAvatars(json['accountAvatars']);
     final profileJson = json['profile'];
     var profile = profileJson is Map ? KanoProfile.fromJson(_obj(profileJson)) : null;
-    profile = profile?.withOwnerHandles(accounts);
+    profile = profile?.withOwnerHandles(accounts, accountAvatars: avatars);
 
     final latestPostJson = summary['latestPost'];
     final latestVideoJson = summary['latestVideo'];
@@ -660,6 +686,7 @@ class KanoDashboard {
       postWindowDays: _num(meta['postWindowDays']),
       xAccounts: accounts,
       profile: profile,
+      accountAvatars: avatars,
       counts: counts,
       latestPost: latestPostJson is Map ? KanoPost.fromJson(_obj(latestPostJson)) : null,
       latestVideo: latestVideoJson is Map ? KanoVideo.fromJson(_obj(latestVideoJson)) : null,
@@ -680,6 +707,7 @@ class KanoDashboard {
   final int postWindowDays;
   final List<String> xAccounts;
   final KanoProfile? profile;
+  final Map<String, String> accountAvatars;
   final Map<String, int> counts;
   final KanoPost? latestPost;
   final KanoVideo? latestVideo;
@@ -717,6 +745,7 @@ class KanoPostPage {
     required this.hasNext,
     required this.revision,
     required this.accountCounts,
+    this.accountAvatars = const <String, String>{},
   });
 
   factory KanoPostPage.fromJson(Map<String, dynamic> json) {
@@ -731,6 +760,7 @@ class KanoPostPage {
       hasNext: _bool(json['hasNext']),
       revision: _num(json['revision']),
       accountCounts: counts,
+      accountAvatars: _parseAccountAvatars(json['accountAvatars']),
     );
   }
 
@@ -742,6 +772,7 @@ class KanoPostPage {
   final bool hasNext;
   final int revision;
   final Map<String, int> accountCounts;
+  final Map<String, String> accountAvatars;
 }
 
 class KanoCalendarPage {

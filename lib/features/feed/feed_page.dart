@@ -4,7 +4,6 @@ import '../kano/data/bilibili_api.dart';
 import '../kano/data/kano_repository.dart';
 import '../kano/domain/kano_models.dart';
 import '../kano/domain/kano_text.dart';
-import '../kano/domain/kano_time.dart';
 import '../kano/presentation/kano_brand_mark.dart';
 import '../kano/presentation/kano_haptics.dart';
 import '../kano/presentation/kano_palette.dart';
@@ -43,6 +42,7 @@ const _tabs = <_Platform, List<_TabDef>>{
     _TabDef('', 'filter_all', 74),
     _TabDef('kano_2525', 'filter_kano', 78),
     _TabDef('_kanotic', 'filter_kanotic', 108),
+    _TabDef('MKLNtic', 'filter_mklntic', 92),
   ],
   _Platform.bilibili: [
     _TabDef('video', 'tab_video', 74),
@@ -116,12 +116,12 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin 
   // X
   final List<KanoPost> _xPosts = [];
   int _xPage = 0;
-  int _xWindow = 0;
   bool _xHasMore = true;
   bool _xLoading = false;
   bool _xFailed = false;
   bool _xFromCache = false;
   bool _xLoaded = false;
+  int _xReqSeq = 0;
 
   // bilibili 视频
   final List<BiliVideoItem> _biliItems = [];
@@ -147,6 +147,7 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin 
   bool _ytFailed = false;
 
   KanoProfile? _profile;
+  Map<String, String> _accountAvatars = const <String, String>{};
 
   final ScrollController _scroll = ScrollController();
 
@@ -209,6 +210,9 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin 
     final data = result.data;
     setState(() {
       _profile = data?.profile;
+      if (data != null && data.accountAvatars.isNotEmpty) {
+        _accountAvatars = <String, String>{..._accountAvatars, ...data.accountAvatars};
+      }
       // dashboard.videos 已经是多平台混装（服务端把 B 站视频也塞了进来），
       // YouTube 栏必须自己剔除，否则「直播 / Videos / Shorts」里会夹着 B 站内容。
       _ytVideos = (data?.videos ?? const <KanoVideo>[])
@@ -229,53 +233,75 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin 
     return source.isEmpty || source == 'youtube';
   }
 
-  /// 窗口 i = [今天-31i-30, 今天-31i+1]，仍是 31 天跨度，右边多留一天补 JST 与 UTC+8 的时差。
-  List<String> _windowDays(int window) {
-    final to = 1 - window * 31;
-    return [KanoTime.dayKeyOffset(to - 30), KanoTime.dayKeyOffset(to)];
+  /// X 栏只保留来自 X 的帖子：服务端 `/api/posts` 归档混装多平台，
+  /// 「全部」不传账号时会夹带 B 站动态，必须用白名单剔除。
+  static bool _belongsToX(KanoPost post) {
+    final source = post.source.trim().toLowerCase();
+    return source.isEmpty || source == 'x';
   }
 
   /// X 的筛选就是账号，切账号必须重拉；否则 `_xLoaded` 还是 true，点了没反应。
   String _xAccount = '';
 
-  Future<void> _fetchX({required bool append}) async {
+  Future<void> _fetchX({required bool append, bool force = false}) async {
     if (_xLoading) return;
+    final reqSeq = _xReqSeq;
+    final account = _platform == _Platform.x ? _tabNow.key : '';
     setState(() {
       _xLoading = true;
       _xFailed = false;
     });
-    final range = _windowDays(_xWindow);
-    final account = _platform == _Platform.x ? _tabNow.key : '';
-    final result = await KanoRepository.instance.posts(
-      from: range[0],
-      to: range[1],
-      account: account,
-      page: append ? _xPage + 1 : 1,
-    );
-    if (!mounted) return;
-    final page = result.data;
+
+    final collected = <KanoPost>[];
+    var currentPage = append ? _xPage : 0;
+    var hasMore = true;
+    var fromCache = false;
+    var loadedAnyPage = false;
+    final fetchedAvatars = <String, String>{};
+
+    for (var skipped = 0; skipped < 5; skipped++) {
+      final nextPage = currentPage + 1;
+      final result = await KanoRepository.instance.postTimeline(
+        account: account,
+        page: nextPage,
+        force: force,
+      );
+      if (!mounted || reqSeq != _xReqSeq || _platform != _Platform.x || _tabNow.key != account) {
+        return;
+      }
+      fromCache = result.source == KanoSource.cache;
+      final page = result.data;
+      if (page == null) break;
+
+      loadedAnyPage = true;
+      currentPage = page.page;
+      hasMore = page.hasNext;
+      if (page.accountAvatars.isNotEmpty) {
+        fetchedAvatars.addAll(page.accountAvatars);
+      }
+      collected.addAll(page.items.where(_belongsToX));
+      if (collected.isNotEmpty || !hasMore) break;
+    }
+
+    if (!mounted || reqSeq != _xReqSeq || _platform != _Platform.x || _tabNow.key != account) {
+      return;
+    }
     setState(() {
-      _xFromCache = result.source == KanoSource.cache;
+      _xFromCache = fromCache;
       _xAccount = account;
-      if (page != null) {
+      if (fetchedAvatars.isNotEmpty) {
+        _accountAvatars = <String, String>{..._accountAvatars, ...fetchedAvatars};
+      }
+      if (loadedAnyPage) {
         if (append) {
-          _xPosts.addAll(page.items);
+          _xPosts.addAll(collected);
         } else {
           _xPosts
             ..clear()
-            ..addAll(page.items);
+            ..addAll(collected);
         }
-        _xPage = page.page;
-        if (page.hasNext) {
-          _xHasMore = true;
-        } else if (page.items.isEmpty) {
-          _xHasMore = false;
-        } else {
-          // 这一窗口翻完了，往前推一个月继续
-          _xWindow += 1;
-          _xPage = 0;
-          _xHasMore = true;
-        }
+        _xPage = currentPage;
+        _xHasMore = hasMore;
         _xLoaded = true;
       } else {
         _xFailed = true;
@@ -366,6 +392,8 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin 
       _filterIndex = index;
       // 切账号时先把上一个账号的帖子清掉，否则请求回来前会看到别人的内容
       if (_platform == _Platform.x) {
+        _xReqSeq += 1;
+        _xLoading = false;
         _xPosts.clear();
         _xLoaded = false;
         _xFailed = false;
@@ -382,7 +410,6 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin 
         // 账号筛选变了也要重拉（鸿蒙切筛选项就重新请求，不是只改本地筛选态）
         if (_xLoading) return;
         if (!_xLoaded || _xAccount != _tabNow.key) {
-          _xWindow = 0;
           _xPage = 0;
           _xHasMore = true;
           _fetchX(append: false);
@@ -401,10 +428,11 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin 
   Future<void> _refresh() async {
     switch (_platform) {
       case _Platform.x:
-        _xWindow = 0;
+        _xReqSeq += 1;
+        _xLoading = false;
         _xPage = 0;
         _xHasMore = true;
-        await _fetchX(append: false);
+        await _fetchX(append: false, force: true);
       case _Platform.bilibili:
         if (_tabNow.key == 'dynamic') {
           await _loadBiliDynamics(append: false);
@@ -594,7 +622,14 @@ class _FeedPageState extends State<FeedPage> with AutomaticKeepAliveClientMixin 
       if (i == 0 && _xFromCache) {
         children.add(_OfflineHint(text: KanoText.ui('feed_offline_snapshot')));
       }
-      children.add(KanoPostCard(post: _xPosts[i], profile: _profile, slot: i));
+      children.add(
+        KanoPostCard(
+          post: _xPosts[i],
+          profile: _profile,
+          accountAvatars: _accountAvatars,
+          slot: i,
+        ),
+      );
     }
     children.add(
       FeedMoreRow(

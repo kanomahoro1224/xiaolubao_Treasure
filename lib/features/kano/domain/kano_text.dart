@@ -141,6 +141,7 @@ const kanoUi = <String, List<String>>{
   'filter_all': ['全部', '全部', 'すべて', 'All'],
   'filter_kano': ['鹿乃', '鹿乃', '鹿乃まほろ', 'Kano'],
   'filter_kanotic': ['鹿乃桜帆', '鹿乃桜帆', '鹿乃tic', 'Kanotic'],
+  'filter_mklntic': ['MKLNtic', 'MKLNtic', 'MKLNtic', 'MKLNtic'],
   'tab_video': ['视频', '影片', '動画', 'Videos'],
   'tab_dynamic': ['动态', '動態', 'ダイナミック', 'Posts'],
   'tab_live': ['直播', '直播', '配信', 'Live'],

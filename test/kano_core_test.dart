@@ -55,7 +55,7 @@ void main() {
 
   group('KanoServer', () {
     test('normalize 补协议、去掉尾斜杠', () {
-      expect(KanoServer.normalize('kano.yexca.net'), 'https://kano.yexca.net');
+      expect(KanoServer.normalize('kano.fans'), 'https://kano.fans');
       expect(KanoServer.normalize('https://a.com///'), 'https://a.com');
       expect(KanoServer.normalize('  '), KanoServer.defaultBase);
     });
@@ -66,11 +66,28 @@ void main() {
       expect(KanoServer.absolute('media/a.jpg'), '$base/media/a.jpg');
     });
 
-    test('absolute 把主站绝对地址改写成当前基址', () {
+    test('absolute 把已知站点绝对地址改写成当前基址', () {
       expect(
         KanoServer.absolute('https://xiaolubao.com/media/x.png'),
         '${KanoServer.base}/media/x.png',
       );
+      expect(
+        KanoServer.absolute('https://kano.kafuno.cn/media/y.png'),
+        '${KanoServer.base}/media/y.png',
+      );
+      expect(
+        KanoServer.absolute('https://kano.fans/media/z.png'),
+        '${KanoServer.base}/media/z.png',
+      );
+    });
+
+    test('switchToFallback 依次切换 1 -> 2 -> 3 数据源，且并发不跳源', () {
+      expect(KanoServer.base, KanoServer.defaultBase);
+      expect(KanoServer.switchToFallback(KanoServer.defaultBase), KanoServer.fallbackBase);
+      // 并发请求携带同一失败的 defaultBase 再切一次时，应停在第二源而不跳过
+      expect(KanoServer.switchToFallback(KanoServer.defaultBase), KanoServer.fallbackBase);
+      expect(KanoServer.switchToFallback(KanoServer.fallbackBase), KanoServer.thirdFallbackBase);
+      expect(KanoServer.switchToFallback(KanoServer.thirdFallbackBase), isNull);
     });
 
     test('accountOf 抠 handle 并小写', () {

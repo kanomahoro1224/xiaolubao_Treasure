@@ -98,6 +98,25 @@ class KanoRepository {
     );
   }
 
+  /// 按时间线翻阅所有帖子（不限 31 天窗口，适合低频更新或跨月翻页的账号）。
+  Future<KanoResult<KanoPostPage>> postTimeline({
+    String account = '',
+    int page = 1,
+    bool force = false,
+  }) async {
+    final query = StringBuffer('?page=$page&pageSize=$pageSize');
+    if (account.isNotEmpty) query.write('&account=${Uri.encodeComponent(account)}');
+    final key = 'posts:timeline:$account:$page';
+    final result = await _client.getText(key, '/api/posts$query', ttl: _postsTtl, force: force);
+    if (result.text.isEmpty) return KanoResult(data: null, source: result.source, cachedAt: 0);
+    final data = _parse(result.text, KanoPostPage.fromJson);
+    return KanoResult(
+      data: data,
+      source: data == null ? KanoSource.error : result.source,
+      cachedAt: await KanoCache.readAt(key),
+    );
+  }
+
   /// 单月日历。`/api/calendar` 只吃 31 天内的范围，跨月直接 `invalid_calendar_range`。
   Future<KanoResult<KanoCalendarPage>> calendar({
     required int year,

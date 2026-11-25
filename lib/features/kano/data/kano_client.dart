@@ -88,28 +88,25 @@ class KanoClient {
     final headers = <String, String>{if (etag.isNotEmpty) 'If-None-Match': etag};
 
     Response<String>? response;
-    try {
-      response = await _dio.get<String>(url, options: Options(headers: headers));
-      // 5xx 说明主站进程在但服务不可用，也按连不上处理；4xx 是请求本身的问题，不切
-      if ((response.statusCode ?? 0) >= 500) {
-        final fallback = KanoServer.switchToFallback(base);
-        if (fallback != null) {
-          base = fallback;
-          url = '$base$path';
-          response = await _dio.get<String>(url, options: Options(headers: headers));
-        }
-      }
-    } catch (_) {
-      final fallback = KanoServer.switchToFallback(base);
-      if (fallback == null) {
-        return KanoTextResult(stale, stale.isNotEmpty ? KanoSource.cache : KanoSource.error);
-      }
-      base = fallback;
+    while (true) {
       url = '$base$path';
       try {
         response = await _dio.get<String>(url, options: Options(headers: headers));
+        // 5xx 说明当前站点进程在但服务不可用，也按连不上处理；4xx 是请求本身的问题，不切
+        if ((response.statusCode ?? 0) >= 500) {
+          final fallback = KanoServer.switchToFallback(base);
+          if (fallback != null && fallback != base) {
+            base = fallback;
+            continue;
+          }
+        }
+        break;
       } catch (_) {
-        return KanoTextResult(stale, stale.isNotEmpty ? KanoSource.cache : KanoSource.error);
+        final fallback = KanoServer.switchToFallback(base);
+        if (fallback == null || fallback == base) {
+          return KanoTextResult(stale, stale.isNotEmpty ? KanoSource.cache : KanoSource.error);
+        }
+        base = fallback;
       }
     }
 

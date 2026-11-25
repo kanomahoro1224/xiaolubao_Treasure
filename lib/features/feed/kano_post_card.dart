@@ -20,12 +20,14 @@ class KanoPostCard extends StatefulWidget {
     super.key,
     required this.post,
     this.profile,
+    this.accountAvatars = const <String, String>{},
     this.slot = 0,
     this.onOpen,
   });
 
   final KanoPost post;
   final KanoProfile? profile;
+  final Map<String, String> accountAvatars;
 
   /// 列表里的序号，只用来算错落入场的延迟（鸿蒙 `Math.min(slot, 9)`）
   final int slot;
@@ -45,11 +47,19 @@ class _KanoPostCardState extends State<KanoPostCard> {
   bool get _translated => post.translated && post.originalText != post.text;
 
   String _avatarFor(String handle) {
+    final lower = handle.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase();
+    if (lower.isEmpty) return '';
+    final rawSource = post.source.trim().toLowerCase();
+    final source = rawSource.isEmpty ? 'x' : rawSource;
+    final key = '$source:$lower';
+    final direct = widget.accountAvatars[key];
+    if (direct != null && direct.isNotEmpty) return direct;
     final p = profile;
+    final fromProfile = p?.accountAvatars[key];
+    if (fromProfile != null && fromProfile.isNotEmpty) return fromProfile;
     if (p == null || p.avatar.isEmpty) return '';
-    final lower = handle.toLowerCase();
     if (p.mainHandle.isNotEmpty && p.mainHandle == lower) return p.avatar;
-    // 小号与主号是同一个人：后台只维护一张头像，直接共用
+    // 小号与主号是同一个人：当服务端未下发独立头像时共用主资料头像
     if (p.ownerHandles.contains(lower)) return p.avatar;
     return '';
   }
